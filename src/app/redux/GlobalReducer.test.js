@@ -1,64 +1,138 @@
 import chai, { expect } from 'chai';
 import chaiImmutable from 'chai-immutable';
 
-import { Map, OrderedMap, getIn, List, fromJS } from 'immutable';
+import { Map, OrderedMap, getIn, List, fromJS, Set, merge } from 'immutable';
 import { emptyContent } from 'app/redux/EmptyState';
 
 import reducer, {
     defaultState,
-    globalActionConstants,
     emptyContentMap,
+    setCollapsed,
+    receiveState,
+    receiveAccount,
+    receiveComment,
+    receiveContent,
+    linkReply,
+    updateAccountWitnessVote,
+    updateAccountWitnessProxy,
+    deleteContent,
+    voted,
+    fetchingData,
+    receiveData,
+    receiveRecentPosts,
+    requestMeta,
+    receiveMeta,
+    set,
+    remove,
+    update,
+    setMetaData,
+    clearMeta,
+    fetchJson,
+    fetchJsonResult,
+    showDialog,
+    hideDialog,
+    getState,
 } from './GlobalReducer';
 
 chai.use(chaiImmutable);
 
-const mockActions = {
-    [globalActionConstants.SET_COLLAPSED]: {
-        type: globalActionConstants.SET_COLLAPSED,
-        payload: {
-            post: 'the city',
-            collapsed: 'is now collapsed',
+const expectedStats = Map({
+    isNsfw: false,
+    hide: false,
+    hasPendingPayout: false,
+    gray: false,
+    flagWeight: 0,
+    up_votes: 0,
+    total_votes: 0,
+    authorRepLog10: undefined,
+    allowDelete: true,
+});
+
+const mockPayloads = {
+    setCollapsed: {
+        post: 'the city',
+        collapsed: 'is now collapsed',
+    },
+    receiveState: {
+        content: Map({ barman: Map({ foo: 'choo', stats: '' }) }),
+    },
+    receiveAccount: {
+        account: {
+            name: 'foo',
+            witness_votes: 99,
+            beList: ['alice', 'bob', 'claire'],
+            beOrderedMap: { foo: 'barman' },
         },
     },
-    [globalActionConstants.RECEIVE_STATE]: {
-        type: globalActionConstants.RECEIVE_STATE,
-        payload: {
-            content: Map({ barman: Map({ foo: 'choo', stats: '' }) }),
+    receiveComment: {
+        op: {
+            author: 'critic',
+            permlink: 'critical-comment',
+            parent_author: 'Yerofeyev',
+            parent_permlink: 'moscow-stations',
+            title: 'moscow to the end of the line',
+            body: 'corpus of the text',
         },
     },
-    [globalActionConstants.RECEIVE_ACCOUNT]: {
-        type: globalActionConstants.RECEIVE_ACCOUNT,
-        payload: {
-            account: {
-                name: 'adorno',
-                witness_votes: 99,
-                beList: ['alice', 'bob', 'claire'],
-                beOrderedMap: { foo: 'barman' },
+    receiveContent: {
+        content: {
+            author: 'sebald',
+            permlink: 'rings-of-saturn',
+            active_votes: { one: { percent: 30 }, two: { percent: 70 } },
+        },
+    },
+    linkReply: {
+        author: 'critic',
+        permlink: 'critical-comment',
+        parent_author: 'Yerofeyev',
+        parent_permlink: 'moscow-stations',
+        title: 'moscow to the end of the line',
+        body: 'corpus of the text',
+    },
+    updateAccountWitnessVote: {
+        account: 'Smee',
+        witness: 'Greech',
+        approve: true,
+    },
+    updateAccountWitnessProxy: {
+        account: 'Alice',
+        proxy: 'Jane',
+    },
+    deleteContent: {
+        author: 'sebald',
+        permlink: 'rings-of-saturn',
+    },
+    fetchingData: {
+        order: 'cheeseburger',
+        category: 'life',
+    },
+    receiveData: {
+        data: [
+            {
+                author: 'smudge',
+                permlink: 'klop',
+                active_votes: { one: { percent: 30 }, two: { percent: 70 } },
             },
-        },
+        ],
+        order: 'by_author',
+        category: 'blog',
+        accountname: 'alice',
     },
-    [globalActionConstants.RECEIVE_COMMENT]: {
-        type: globalActionConstants.RECEIVE_COMMENT,
-        payload: {
-            op: {
-                author: 'critic',
-                permlink: 'crtical-comment',
-                parent_author: 'Yerofeyev',
-                parent_permlink: 'moscow-stations',
-                title: 'moscow to the end of the line',
-                body: 'corpus of the text',
+    receiveRecentPosts: {
+        data: [
+            {
+                author: 'pidge',
+                permlink: 'wolf',
+                active_votes: { one: { percent: 60 }, two: { percent: 30 } },
+                stats: {},
             },
-        },
-    },
-    [globalActionConstants.RECEIVE_CONTENT]: {
-        type: globalActionConstants.RECEIVE_CONTENT,
-        payload: {
-            content: {
-                author: 'sebald',
-                permlink: 'rings-of-saturn',
-                active_votes: { one: { percent: 30}, two: { percent: 70}},
+            {
+                author: 'ding',
+                permlink: 'bat',
+                active_votes: { one: { percent: 60 }, two: { percent: 30 } },
+                stats: {},
             },
-        },
+        ],
     },
 };
 
@@ -68,44 +142,36 @@ describe('Global reducer', () => {
         expect(initial).to.equal(defaultState);
     });
     it('should return correct state for a SET_COLLAPSED action', () => {
+        // Arrange
         const initial = reducer().set(
             'content',
             Map({
-                [mockActions[globalActionConstants.SET_COLLAPSED].payload
-                    .post]: Map({}),
+                [mockPayloads.setCollapsed.post]: Map({}),
             })
         );
+        // Act
         const actual = reducer(
             initial,
-            mockActions[globalActionConstants.SET_COLLAPSED]
+            setCollapsed(mockPayloads.setCollapsed)
         );
+        // Assert
         expect(
             actual.getIn([
                 'content',
-                mockActions[globalActionConstants.SET_COLLAPSED].payload.post,
+                mockPayloads.setCollapsed.post,
                 'collapsed',
             ])
-        ).to.eql(
-            mockActions[globalActionConstants.SET_COLLAPSED].payload.collapsed
-        );
+        ).to.eql(mockPayloads.setCollapsed.collapsed);
     });
     it('should return correct state for a RECEIVE_STATE action', () => {
+        // Arrange
         const initial = reducer();
+        // Act
         const actual = reducer(
             initial,
-            mockActions[globalActionConstants.RECEIVE_STATE]
+            receiveState(mockPayloads.receiveState)
         );
-        const expectedStats = Map({
-            isNsfw: false,
-            hide: false,
-            hasPendingPayout: false,
-            gray: false,
-            flagWeight: 0,
-            up_votes: 0,
-            total_votes: 0,
-            authorRepLog10: undefined,
-            allowDelete: true,
-        });
+        // Assert
         expect(actual.getIn(['content', 'barman', 'foo'])).to.eql('choo');
         expect(actual.getIn(['content', 'barman', 'stats'])).to.eql(
             expectedStats
@@ -113,24 +179,23 @@ describe('Global reducer', () => {
     });
 
     it('should return correct state for a RECEIVE_ACCOUNT action', () => {
-        const payload =
-            mockActions[globalActionConstants.RECEIVE_ACCOUNT].payload;
+        // Arrange
+        const payload = mockPayloads.receiveAccount;
         const initial = reducer();
-        const actual = reducer(
-            initial,
-            mockActions[globalActionConstants.RECEIVE_ACCOUNT]
-        );
         const expected = Map({
             status: {},
             accounts: Map({
-                adorno: Map({
-                    name: 'adorno',
+                foo: Map({
+                    name: 'foo',
                     witness_votes: 99,
                     be_List: List(['alice', 'bob', 'claire']),
                     be_orderedMap: OrderedMap({ foo: 'barman' }),
                 }),
             }),
         });
+        // Act
+        const actual = reducer(initial, receiveAccount(payload));
+        // Assert
         expect(actual.getIn(['accounts', payload.account.name, 'name'])).to.eql(
             payload.account.name
         );
@@ -143,6 +208,8 @@ describe('Global reducer', () => {
     });
 
     it('should return correct state for a RECEIVE_COMMENT action', () => {
+        // Arrange
+        const payload = mockPayloads.receiveComment;
         const {
             author,
             permlink,
@@ -150,36 +217,293 @@ describe('Global reducer', () => {
             parent_permlink,
             title,
             body,
-        } = mockActions[globalActionConstants.RECEIVE_COMMENT].payload.op;
-        const initial = reducer();
-        const actual = reducer(
-            initial,
-            mockActions[globalActionConstants.RECEIVE_COMMENT]
+        } = payload.op;
+        //Act
+        const actual = reducer(reducer(), receiveComment(payload));
+        //  Assert
+        expect(
+            actual.getIn(['content', `${author}/${permlink}`])
+        ).to.include.all.keys(
+            ...Object.keys(emptyContent),
+            ...Object.keys(payload.op)
         );
-        expect(actual.getIn(['content', `${author}/${permlink}`])).to.include.all.keys(...Object.keys(emptyContent), ...Object.keys( mockActions[globalActionConstants.RECEIVE_COMMENT].payload.op));
-        // With Parent.
-        expect(actual.getIn(['content', `${parent_author}/${parent_permlink}`])).to.include.all.keys('replies', 'children');
-        // Without Parent.
-        mockActions[globalActionConstants.RECEIVE_COMMENT].payload.op.parent_author = '';
-        const actual2 = reducer(
-            initial,
-            mockActions[globalActionConstants.RECEIVE_COMMENT]
-        );
-        expect(actual2.getIn(['content', `${parent_author}/${parent_permlink}`])).to.eql(undefined)
+        expect(
+            actual.getIn(['content', `${parent_author}/${parent_permlink}`])
+        ).to.include.all.keys('replies', 'children');
+        // Arrange
+        payload.op.parent_author = '';
+        // Act
+        const actual2 = reducer(reducer(), receiveComment(payload));
+        // Assert
+        expect(
+            actual2.getIn(['content', `${parent_author}/${parent_permlink}`])
+        ).to.eql(undefined);
     });
     it('should return correct state for a RECEIVE_CONTENT action', () => {
-        const {
-            author,
-            permlink,
-            active_votes,
-        } = mockActions[globalActionConstants.RECEIVE_CONTENT].payload.content;
-        const initial = reducer();
-        const actual = reducer(
-            initial,
-            mockActions[globalActionConstants.RECEIVE_CONTENT]
+        // Arrange
+        const payload = mockPayloads.receiveContent;
+        const { author, permlink, active_votes } = payload.content;
+        // Act
+        const actual = reducer(reducer(), receiveContent(payload));
+        // Assert
+        expect(
+            actual.getIn(['content', `${author}/${permlink}`])
+        ).to.include.all.keys(
+            ...Object.keys(emptyContent),
+            ...Object.keys(payload.content)
         );
-        expect(actual.getIn(['content', `${author}/${permlink}`])).to.include.all.keys(...Object.keys(emptyContent));
-        expect(actual.getIn(['content', `${author}/${permlink}`, 'active_votes'])).to.eql(fromJS(active_votes));
+        expect(
+            actual.getIn(['content', `${author}/${permlink}`, 'active_votes'])
+        ).to.eql(fromJS(active_votes));
     });
-    
+
+    it('should return correct state for a LINK_REPLY action', () => {
+        // Arrange
+        let payload = mockPayloads.linkReply;
+        const initial = reducer();
+        const expected = Map({
+            [payload.parent_author + '/' + payload.parent_permlink]: Map({
+                replies: List([`${payload.author}/${payload.permlink}`]),
+                children: 1,
+            }),
+        });
+        // Act
+        let actual = reducer(initial, linkReply(payload));
+        // Assert
+        expect(actual.get('content')).to.eql(expected);
+        // Arrange
+        // Remove parent
+        payload.parent_author = '';
+        // Act
+        actual = reducer(initial, linkReply(payload));
+        // Assert
+        expect(actual).to.eql(initial);
+    });
+    it('should return correct state for a UPDATE_ACCOUNT_WITNESS_VOTE action', () => {
+        // Arrange
+        let payload = mockPayloads.updateAccountWitnessVote;
+        const initial = reducer();
+        // Act
+        let actual = reducer(initial, updateAccountWitnessVote(payload));
+        // Assert
+        expect(
+            actual.getIn(['accounts', payload.account, 'witness_votes'])
+        ).to.eql(Set([payload.witness]));
+        // Arrange
+        payload.approve = false;
+        // Act
+        actual = reducer(initial, updateAccountWitnessVote(payload));
+        // Assert
+        expect(actual).to.eql(initial);
+    });
+    it('should return correct state for a UPDATE_ACCOUNT_WITNESS_VOTE action', () => {
+        // Arrange
+        let payload = mockPayloads.updateAccountWitnessProxy;
+        const initial = reducer();
+        const expected = Map({ proxy: payload.proxy });
+        // Act
+        const actual = reducer(initial, updateAccountWitnessProxy(payload));
+        // Assert
+        expect(actual.getIn(['accounts', payload.account])).to.eql(expected);
+    });
+    it('should return correct state for a DELETE_CONTENT action', () => {
+        // Arrange
+        let payload = mockPayloads.deleteContent;
+        let initial = reducer();
+        // Act
+        // add content
+        const initWithContent = initial.setIn(
+            ['content', `${payload.author}/${payload.permlink}`],
+            Map({
+                author: 'sebald',
+                permlink: 'rings-of-saturn',
+                parent_author: '',
+                active_votes: { one: { percent: 30 }, two: { percent: 70 } },
+                replies: List(['cool', 'mule']),
+            })
+        );
+        let expected = Map({});
+        // Act
+        let actual = reducer(initWithContent, deleteContent(payload));
+        // Assert
+        expect(actual.get('content')).to.eql(expected);
+        // Arrange
+        const initWithContentAndParent = initial.setIn(
+            ['content', `${payload.author}/${payload.permlink}`],
+            Map({
+                author: 'sebald',
+                permlink: 'rings-of-saturn',
+                parent_author: 'alice',
+                parent_permlink: 'bob',
+                active_votes: { one: { percent: 30 }, two: { percent: 70 } },
+            })
+        );
+        const initWithParentKeyContent = initWithContentAndParent.setIn(
+            ['content', 'alice/bob'],
+            Map({
+                replies: [
+                    `${payload.author}/${payload.permlink}`,
+                    'dorothy-hughes/in-a-lonely-place',
+                    'artichoke/hearts',
+                ],
+            })
+        );
+        expected = Map({
+            replies: ['dorothy-hughes/in-a-lonely-place', 'artichoke/hearts'],
+        });
+        // Act
+        actual = reducer(initWithParentKeyContent, deleteContent(payload));
+        // Assert
+        expect(actual.getIn(['content', 'alice/bob', 'replies']))
+            .to.have.length(2)
+            .and.to.not.include(`${payload.author}/${payload.permlink}`);
+    });
+    it('should return correct state for a FETCHING_DATA action', () => {
+        // Arrange
+        const payload = mockPayloads.fetchingData;
+        const initWithCategory = reducer().set(
+            'status',
+            Map({
+                [payload.category]: Map({
+                    [payload.order]: { fetching: false },
+                }),
+            })
+        );
+        // Act
+        const actual = reducer(initWithCategory, fetchingData(payload));
+        // Assert
+        expect(
+            actual.getIn(['status', payload.category, payload.order])
+        ).to.eql({ fetching: true });
+    });
+    it('should return correct state for a RECEIVE_DATA action', () => {
+        //Arrange
+        let payload = mockPayloads.receiveData;
+        const initWithData = reducer().merge({
+            accounts: Map({
+                [payload.accountname]: Map({
+                    [payload.category]: List([
+                        { data: { author: 'farm', permlink: 'barn' } },
+                    ]),
+                }),
+            }),
+            content: Map({}),
+            status: Map({
+                [payload.category]: Map({
+                    [payload.order]: {},
+                }),
+            }),
+            discussion_idx: Map({
+                [payload.category]: Map({
+                    UnusualOrder: List([
+                        { data: { author: 'ship', permlink: 'bridge' } },
+                    ]),
+                }),
+                '': Map({
+                    FebrileFriday: List([]),
+                }),
+            }),
+        });
+
+        //Act
+        const actual1 = reducer(initWithData, receiveData(payload));
+
+        //Assert
+        expect(actual1.getIn(['content', 'author'])).to.eql(payload.author);
+        expect(actual1.getIn(['content', 'permlink'])).to.eql(payload.permlink);
+        expect(actual1.getIn(['content', 'active_vites'])).to.eql(
+            payload.active_votes
+        );
+        expect(
+            actual1.getIn([
+                'content',
+                `${payload.data[0].author}/${payload.data[0].permlink}`,
+                'stats',
+                'allowDelete',
+            ])
+        ).to.eql(false);
+
+        // Push new key to posts list, If order meets the condition.
+        expect(
+            actual1.getIn(['accounts', payload.accountname, payload.category])
+        ).to.deep.include(
+            `${payload.data[0].author}/${payload.data[0].permlink}`
+        );
+
+        // Arrange
+        payload.order = 'UnusualOrder';
+        //Act.
+        // Push new key to discussion_idx list, If order does not meet the condition.
+        const actual2 = reducer(initWithData, receiveData(payload));
+
+        // Assert
+        expect(
+            actual2.getIn(['discussion_idx', payload.category, payload.order])
+        ).to.deep.include(
+            `${payload.data[0].author}/${payload.data[0].permlink}`
+        );
+        // Arrange
+        // handle falsey payload category by setting empty string at keypath location typically occupied by category.
+        payload.order = 'FebrileFriday';
+        payload.category = '';
+        // Act
+        const actual3 = reducer(initWithData, receiveData(payload));
+        // Assert.
+        expect(
+            actual3.getIn(['discussion_idx', '', payload.order])
+        ).to.deep.include(
+            `${payload.data[0].author}/${payload.data[0].permlink}`
+        );
+    });
+    it('should return correct state for a RECEIVE_RECENT_POSTS action', () => {
+        // Arrange
+        const initial = reducer();
+        const initWithData = reducer()
+            .setIn(['discussion_idx', '', 'created'], List([]))
+            .set('content', Map({}));
+
+        // Act
+        const actual = reducer(
+            initWithData,
+            receiveRecentPosts(mockPayloads.receiveRecentPosts)
+        );
+        // Assert
+        // It adds recent posts to discussion_idx
+        expect(actual.getIn(['discussion_idx', '', 'created'])).to.eql(
+            List([
+                `${mockPayloads.receiveRecentPosts.data[1].author}/${
+                    mockPayloads.receiveRecentPosts.data[1].permlink
+                }`,
+                `${mockPayloads.receiveRecentPosts.data[0].author}/${
+                    mockPayloads.receiveRecentPosts.data[0].permlink
+                }`,
+            ])
+        );
+        // It adds recent posts to content
+        expect(actual.get('content'))
+            .to.have.property(
+                `${mockPayloads.receiveRecentPosts.data[0].author}/${
+                    mockPayloads.receiveRecentPosts.data[0].permlink
+                }`
+            )
+            .to.have.property('stats');
+
+        // Act
+        // If the recent post is already in the list do not add it again.
+        const actual2 = reducer(
+            actual,
+            receiveRecentPosts(mockPayloads.receiveRecentPosts)
+        );
+        // Assert
+        expect(actual.getIn(['discussion_idx', '', 'created'])).to.have.sizeOf(
+            2
+        );
+        expect(actual.get('content'))
+            .to.have.sizeOf(2)
+            .and.to.have.property(
+                `${mockPayloads.receiveRecentPosts.data[0].author}/${
+                    mockPayloads.receiveRecentPosts.data[0].permlink
+                }`
+            );
+    });
 });
